@@ -279,7 +279,7 @@ body {
 }
 /* stylelint-enable no-descending-specificity */
 
-/* jellyfin logo in the waiting container */
+/* logo in the waiting container */
 #waiting-container .logo {
     width: 4vw;
     display: inline-block;
@@ -300,8 +300,8 @@ cast-media-player {
     --spinner-image: url('../img/spinner.png');
     --watermark-image: url('../img/banner.svg');
     --watermark-size: 225px;
-    --watermark-position: top right;
-    --theme-hue: 195.3; /* Jellyfin blue */
-    --progress-color: #00a4dc;
+    --watermark-position: top left;
+    --theme-hue: 271; /* Streamyfin purple */
+    --progress-color: #fff; /* as in the app's own players */
 }
 /* stylelint-enable selector-type-no-unknown */

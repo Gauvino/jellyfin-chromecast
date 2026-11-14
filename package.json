@@ -1,11 +1,11 @@
 {
-    "name": "jellyfin-chromecast",
-    "description": "Cast receiver for Jellyfin",
+    "name": "streamyfin-cast",
+    "description": "Cast receiver for Streamyfin",
     "version": "0.0.0",
     "private": true,
     "type": "module",
     "bugs": {
-        "url": "https://github.com/jellyfin/jellyfin-chromecast/issues"
+        "url": "https://github.com/streamyfin/streamyfin/issues"
     },
     "dependencies": {
         "@jellyfin/sdk": "0.13.0"
@@ -29,7 +29,7 @@
         "vite": "8.3.0",
         "vitest": "5.0.1"
     },
-    "homepage": "https://jellyfin.org/",
+    "homepage": "https://streamyfin.app",
     "license": "GPL-2.0-or-later",
     "repository": {
         "type": "git",

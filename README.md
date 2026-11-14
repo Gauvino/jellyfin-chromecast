@@ -1,49 +1,33 @@
-<h1 align="center">Jellyfin Cast Web Receiver</h1>
-<h3 align="center">Part of the <a href="https://jellyfin.org">Jellyfin Project</a></h3>
+# Streamyfin Cast receiver
 
-<p align="center">
-<img alt="Logo Banner" src="https://raw.githubusercontent.com/jellyfin/jellyfin-ux/master/branding/SVG/banner-logo-solid.svg?sanitize=true"/>
-<br/>
-<br/>
-<a href="https://github.com/jellyfin/jellyfin-chromecast">
-<img alt="GPL 2.0 License" src="https://img.shields.io/github/license/jellyfin/jellyfin-chromecast.svg"/>
-</a>
-<a href="https://github.com/jellyfin/jellyfin-chromecast/releases">
-<img alt="Current Release" src="https://img.shields.io/github/release/jellyfin/jellyfin-chromecast.svg"/>
-</a>
-</p>
+The Cast receiver of [Streamyfin](https://github.com/streamyfin/streamyfin): the page a Google Cast device
+loads when the app casts to it. It plays media from your Jellyfin server on the TV and reports playback to
+the server. It is being tested, and the app does not use it yet.
 
-The Jellyfin Cast Web Receiver is the frontend used when casting to a Google Cast capable device. It is used by default when casting from the Jellyfin Android app or Jellyfin web client.
+This is a web receiver, as the [Google Cast documentation](https://developers.google.com/cast/docs/overview)
+calls it. Nothing is installed on the TV: the device opens this page when a cast session starts.
 
-### How do I use it?
+## Where it comes from
 
-A `stable` and `unstable` version of this app are already included in the Jellyfin server. There is no need to separately install this project. To host your own version (for developing) see `CONTRIBUTING.md`.
+This receiver is based on [jellyfin-chromecast](https://github.com/jellyfin/jellyfin-chromecast) v1.3.2, the
+Cast receiver of the [Jellyfin project](https://jellyfin.org). It keeps the same license, GPL-2.0-or-later
+(see `LICENSE.md`). What Streamyfin changed is in the git history, on top of the `v1.3.2` tag.
 
-The `stable` version is the latest released version. `unstable` is updated automatically from the `master` branch.
+## Build and test
 
-### What does it do?
+You need Node 24 (see `.nvmrc`) and npm.
 
-This is a `web receiver` as defined in the [Google Cast architecture](https://developers.google.com/cast/docs/overview).
+```sh
+npm ci
+npm run test -- --run
+npm run build
+npm run lint
+```
 
-As soon as you press the "cast" button on your client this application will start on you cast-capable device and handle playback functionality. 
+`npm start` serves a development build on port 9000. `CONTRIBUTING.md` explains how to try a build on a real
+device.
 
-### What doesn't it do?
+## Something not working?
 
-Anything related to your non-cast device (e.g. your phone, browser, other device) or anything about the inclusion of casting for a specific client (e.g. casting from the iOS app).
-
-Any issues/features related to that: check the respective repository.
-
-### Something not working right?
-
-First check if the issue is actually Google Cast related. So answer the question:
-
-`"Can I reproduce the issue on any other way then when casting to a Google Cast capable device?"`
-
-If yes: The issue probably lies somewhere else. 
-If no: [Open an issue on GitHub](https://github.com/jellyfin/jellyfin-chromecast/issues/new/choose).
-
-### Testing
-
-Jellyfin allows switching between a `stable` and `unstable` version of the client. Go the client of your choice and: `user` -> `settings` -> `playback` -> `Google Cast version`.
-
-Note that this setting is set per-user.
+Open an issue in the [Streamyfin repository](https://github.com/streamyfin/streamyfin/issues), and say which
+device you cast to.
