@@ -1,0 +1,78 @@
+name: Streamyfin
+
+on:
+    push:
+        branches:
+            - streamyfin
+    pull_request:
+        branches:
+            - streamyfin
+    workflow_dispatch:
+        inputs:
+            ref:
+                description: Branch, tag or commit to deploy to the test address
+                required: true
+                default: streamyfin
+
+permissions:
+    contents: read
+
+concurrency:
+    group: streamyfin-pages
+    cancel-in-progress: false
+
+jobs:
+    check:
+        name: Test, build and lint
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ inputs.ref || github.sha }}
+
+            - name: Setup node env
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version-file: .nvmrc
+
+            - name: Install dependencies
+              run: npm ci --no-audit
+
+            - name: Run tests
+              run: npm run test
+
+            # The receiver reports this version to the Jellyfin server: it is how a run knows
+            # which build a TV has loaded.
+            - name: Set the version to the commit
+              run: jq --arg v "$(git rev-parse --short=7 HEAD)" '.version = $v' package.json > tmp && mv tmp package.json
+
+            - name: Build
+              run: npm run build
+
+            - name: Lint
+              run: npm run lint
+
+            - name: Upload the page
+              if: ${{ github.event_name != 'pull_request' }}
+              uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+              with:
+                  path: dist
+
+    deploy:
+        name: Deploy to the test address
+        if: ${{ github.event_name != 'pull_request' }}
+        needs: [check]
+        runs-on: ubuntu-latest
+        permissions:
+            pages: write
+            id-token: write
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+
+        steps:
+            - name: Deploy
+              id: deployment
+              uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
