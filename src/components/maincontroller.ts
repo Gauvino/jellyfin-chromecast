@@ -26,6 +26,7 @@ import {
     detectBitrate
 } from './jellyfinActions';
 import { getDeviceProfile } from './deviceprofileBuilder';
+import { reportStopOnExit } from './exitReport';
 import { JellyfinApi } from './jellyfinApi';
 import { PlaybackManager, type PlaybackState } from './playbackManager';
 import { CommandHandler } from './commandHandler';
@@ -159,6 +160,13 @@ enableTimeUpdateListener();
 window.addEventListener('beforeunload', () => {
     disableTimeUpdateListener();
 });
+
+// Closing the app ends the page without MEDIA_FINISHED: report the stop here.
+window.addEventListener('pagehide', reportStopOnExit);
+window.castReceiverContext.addEventListener(
+    cast.framework.system.EventType.SHUTDOWN,
+    reportStopOnExit
+);
 
 window.playerManager.addEventListener(
     cast.framework.events.EventType.PLAY,
