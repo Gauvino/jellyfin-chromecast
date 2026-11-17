@@ -202,12 +202,14 @@ describe('reported position', () => {
     const resumed = (hasPlayed: boolean): PlaybackState =>
         ({ hasPlayed, startPositionTicks: 3604000000 }) as PlaybackState;
 
-    const playerAt = (seconds: number): void => {
+    // canClientSeek false is a progressive transcode: the server starts its
+    // stream at the start position, where the player reads 0.
+    const playerAt = (seconds: number, canClientSeek = true): void => {
         vi.stubGlobal('window', {
             playerManager: {
                 getCurrentTimeSec: (): number => seconds,
                 getMediaInformation: (): unknown => ({
-                    customData: { canClientSeek: true }
+                    customData: { canClientSeek }
                 })
             }
         });
@@ -246,5 +248,12 @@ describe('reported position', () => {
         playerAt(361.5);
 
         expect(getStopPositionTicks(resumed(true))).toBe(3615000000);
+    });
+
+    test('of a stop of a progressive transcode adds the start position', () => {
+        playerAt(61.5, false);
+
+        expect(getCurrentPositionTicks(resumed(true))).toBe(4219000000);
+        expect(getStopPositionTicks(resumed(true), 61.5)).toBe(4219000000);
     });
 });

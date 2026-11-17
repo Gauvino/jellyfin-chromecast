@@ -54,10 +54,26 @@ export function getCurrentPositionTicks(state: PlaybackState): number {
         return state.startPositionTicks || 0;
     }
 
-    let positionTicks =
-        window.playerManager.getCurrentTimeSec() * TicksPerSecond;
+    return streamTimeToPositionTicks(
+        state,
+        window.playerManager.getCurrentTimeSec()
+    );
+}
+
+/**
+ * Get the position in the item, in ticks, of a time in the player's stream.
+ * @param state - playback state.
+ * @param seconds - time in the stream, in seconds.
+ * @returns position in ticks
+ */
+function streamTimeToPositionTicks(
+    state: PlaybackState,
+    seconds: number
+): number {
+    let positionTicks = seconds * TicksPerSecond;
     const mediaInformation = window.playerManager.getMediaInformation();
 
+    // A stream the receiver cannot seek in begins at the start position.
     if (mediaInformation && !mediaInformation.customData?.canClientSeek) {
         positionTicks += state.startPositionTicks || 0;
     }
@@ -85,7 +101,7 @@ export function getStopPositionTicks(
         return getCurrentPositionTicks(state);
     }
 
-    return currentMediaTime * TicksPerSecond;
+    return streamTimeToPositionTicks(state, currentMediaTime);
 }
 
 /**
