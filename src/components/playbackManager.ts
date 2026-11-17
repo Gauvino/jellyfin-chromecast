@@ -31,6 +31,8 @@ import type { ItemIndex, PlayRequest } from '~/types/global';
 
 export interface PlaybackState {
     startPositionTicks: number;
+    // False from a load until its media plays: the player sits at 0 meanwhile.
+    hasPlayed: boolean;
     mediaType: string | null | undefined;
     itemId: string | undefined;
 
@@ -61,6 +63,7 @@ export abstract class PlaybackManager {
     static playbackState: PlaybackState = {
         audioStreamIndex: null,
         canSeek: false,
+        hasPlayed: false,
         isChangingStream: false,
         item: null,
         itemId: '',
@@ -400,6 +403,7 @@ export abstract class PlaybackManager {
         DocumentManager.setAppStatus(AppStatus.Waiting);
 
         this.playbackState.startPositionTicks = 0;
+        this.playbackState.hasPlayed = false;
         DocumentManager.setWaitingBackdrop(null, null);
         this.playbackState.mediaType = '';
         this.playbackState.itemId = '';

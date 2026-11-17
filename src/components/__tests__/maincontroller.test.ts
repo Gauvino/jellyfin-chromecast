@@ -49,6 +49,7 @@ vi.mock('../../helpers', () => ({
     getMetadata: vi.fn(),
     getReportingParams: vi.fn(),
     getShuffleItems: vi.fn(),
+    getStopPositionTicks: vi.fn(),
     getStreamByIndex: vi.fn(),
     TicksPerSecond: 10000000,
     ticksToSeconds: vi.fn(),

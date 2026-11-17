@@ -190,3 +190,55 @@ describe('max bitrate', () => {
         expect(nextMaxBitrate({ maxBitrate: null }, 192000)).toBeUndefined();
     });
 });
+
+describe('reported position', () => {
+    let getCurrentPositionTicks: typeof import('../helpers').getCurrentPositionTicks;
+    let getStopPositionTicks: typeof import('../helpers').getStopPositionTicks;
+
+    type PlaybackState = import('../components/playbackManager').PlaybackState;
+
+    // A resumed HLS transcode: the player seeks in it to the start position,
+    // and sits at 0 until the load has got there.
+    const resumed = (hasPlayed: boolean): PlaybackState =>
+        ({ hasPlayed, startPositionTicks: 3604000000 }) as PlaybackState;
+
+    const playerAt = (seconds: number): void => {
+        vi.stubGlobal('window', {
+            playerManager: {
+                getCurrentTimeSec: (): number => seconds,
+                getMediaInformation: (): unknown => ({
+                    customData: { canClientSeek: true }
+                })
+            }
+        });
+    };
+
+    beforeEach(async () => {
+        ({ getCurrentPositionTicks, getStopPositionTicks } =
+            await importHelpers());
+    });
+
+    test('is the start position a load asks for until the media has played', () => {
+        playerAt(0);
+
+        expect(getCurrentPositionTicks(resumed(false))).toBe(3604000000);
+    });
+
+    test('is the player position once the media has played', () => {
+        playerAt(361.5);
+
+        expect(getCurrentPositionTicks(resumed(true))).toBe(3615000000);
+    });
+
+    test('of a stop is the start position when the media never played', () => {
+        playerAt(0);
+
+        expect(getStopPositionTicks(resumed(false), 0)).toBe(3604000000);
+    });
+
+    test('of a stop is where the player stopped once the media has played', () => {
+        playerAt(361.5);
+
+        expect(getStopPositionTicks(resumed(true), 361.5)).toBe(3615000000);
+    });
+});

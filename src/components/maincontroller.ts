@@ -6,6 +6,7 @@ import type {
 import { getSessionApi, getUserLibraryApi } from '@jellyfin/sdk/lib/utils/api';
 import {
     getCurrentPositionTicks,
+    getStopPositionTicks,
     getReportingParams,
     getMetadata,
     getStreamByIndex,
@@ -15,8 +16,7 @@ import {
     broadcastConnectionErrorMessage,
     broadcastToMessageBus,
     nextMaxBitrate,
-    ticksToSeconds,
-    TicksPerSecond
+    ticksToSeconds
 } from '../helpers';
 import {
     reportPlaybackStart,
@@ -221,9 +221,10 @@ window.playerManager.addEventListener(
 
         await reportPlaybackStopped(playbackState, {
             ...getReportingParams(playbackState),
-            PositionTicks:
-                (mediaFinishedEvent.currentMediaTime ??
-                    getCurrentPositionTicks(playbackState)) * TicksPerSecond
+            PositionTicks: getStopPositionTicks(
+                playbackState,
+                mediaFinishedEvent.currentMediaTime
+            )
         });
 
         defaultOnStop();
@@ -258,6 +259,7 @@ window.playerManager.addEventListener(
 window.playerManager.addEventListener(
     cast.framework.events.EventType.PLAYING,
     (): void => {
+        PlaybackManager.playbackState.hasPlayed = true;
         reportPlaybackStart(
             PlaybackManager.playbackState,
             getReportingParams(PlaybackManager.playbackState)

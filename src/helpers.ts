@@ -48,6 +48,12 @@ export const TicksPerSecond = 10000000;
  * @returns position in ticks
  */
 export function getCurrentPositionTicks(state: PlaybackState): number {
+    // Until the media plays, the player is at 0, not where the load starts it:
+    // reporting that 0 moves the item's resume point back to the beginning.
+    if (!state.hasPlayed) {
+        return state.startPositionTicks || 0;
+    }
+
     let positionTicks =
         window.playerManager.getCurrentTimeSec() * TicksPerSecond;
     const mediaInformation = window.playerManager.getMediaInformation();
@@ -57,6 +63,26 @@ export function getCurrentPositionTicks(state: PlaybackState): number {
     }
 
     return positionTicks;
+}
+
+/**
+ * Get the position a stop is reported at, in ticks.
+ * @param state - playback state.
+ * @param currentMediaTime - where the player stopped, in seconds, when the event gives it.
+ * @returns position in ticks
+ */
+export function getStopPositionTicks(
+    state: PlaybackState,
+    currentMediaTime?: number
+): number {
+    // The player stopped before the load got to its start position.
+    if (!state.hasPlayed) {
+        return state.startPositionTicks || 0;
+    }
+
+    return (
+        (currentMediaTime ?? getCurrentPositionTicks(state)) * TicksPerSecond
+    );
 }
 
 /**

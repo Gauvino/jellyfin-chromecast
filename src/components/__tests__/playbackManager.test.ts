@@ -29,7 +29,12 @@ vi.mock('../maincontroller', () => ({
     showPlaybackInfoErrorMessage: mocks.playbackInfoError
 }));
 vi.mock('../documentManager', () => ({
-    DocumentManager: { setAppStatus: vi.fn() }
+    DocumentManager: {
+        setAppStatus: vi.fn(),
+        setDetailImage: vi.fn(),
+        setLogo: vi.fn(),
+        setWaitingBackdrop: vi.fn()
+    }
 }));
 vi.mock('../deviceprofileBuilder', () => ({
     getDeviceProfile: (): object => ({})
@@ -46,4 +51,13 @@ test('a PlaybackInfo request that fails is reported once, as a connection error'
 
     expect(mocks.connectionError).toHaveBeenCalledTimes(1);
     expect(mocks.playbackInfoError).not.toHaveBeenCalled();
+});
+
+// Every load resets the scope: its media has not played until PLAYING says so.
+test('a new load starts out not played', () => {
+    PlaybackManager.playbackState.hasPlayed = true;
+
+    PlaybackManager.resetPlaybackScope();
+
+    expect(PlaybackManager.playbackState.hasPlayed).toBe(false);
 });
