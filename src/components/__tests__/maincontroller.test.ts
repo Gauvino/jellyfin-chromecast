@@ -41,6 +41,7 @@ const mocks = vi.hoisted(() => {
         // The stub, unless a test gives the playback state it needs.
         playbackState: stub,
         reportPlaybackStopped: vi.fn(),
+        stopActiveEncodings: vi.fn(),
         stoppedDuringLoad: new Set<string>(),
         stub,
         translateRequestedItems: vi.fn()
@@ -66,7 +67,8 @@ vi.mock('../jellyfinActions', () => ({
     play: vi.fn(),
     reportPlaybackProgress: vi.fn(),
     reportPlaybackStart: vi.fn(),
-    reportPlaybackStopped: mocks.reportPlaybackStopped
+    reportPlaybackStopped: mocks.reportPlaybackStopped,
+    stopActiveEncodings: mocks.stopActiveEncodings
 }));
 vi.mock('../deviceprofileBuilder', () => ({ getDeviceProfile: vi.fn() }));
 vi.mock('../jellyfinApi', () => ({ JellyfinApi: { jellyfinApi: {} } }));
@@ -143,5 +145,15 @@ describe('the end of a media', () => {
 
         expect(mocks.reportPlaybackStopped).not.toHaveBeenCalled();
         expect(mocks.onStop).toHaveBeenCalledTimes(1);
+    });
+
+    test('ends the transcodes the load started after its stop was reported', async () => {
+        mocks.playbackState = { playSessionId: 'stopped' };
+        mocks.stoppedDuringLoad.add('stopped');
+
+        await onMediaFinished({ endedReason: 'STOPPED' });
+
+        expect(mocks.stopActiveEncodings).toHaveBeenCalledTimes(1);
+        expect(mocks.stopActiveEncodings).toHaveBeenCalledWith('stopped');
     });
 });

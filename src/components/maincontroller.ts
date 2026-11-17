@@ -23,7 +23,8 @@ import {
     reportPlaybackProgress,
     reportPlaybackStopped,
     play,
-    detectBitrate
+    detectBitrate,
+    stopActiveEncodings
 } from './jellyfinActions';
 import { getDeviceProfile } from './deviceprofileBuilder';
 import { reportStopOnExit } from './exitReport';
@@ -227,9 +228,12 @@ export async function onMediaFinished(
         return;
     }
 
-    // Its stop was reported as it arrived, during the load.
+    // Its stop was reported as it arrived, during the load. The load went on
+    // requesting its stream after that, and the server may have started a
+    // transcode for it: only a stop report ended that one before.
     if (wasStoppedDuringLoad(playbackState.playSessionId)) {
         defaultOnStop();
+        await stopActiveEncodings(playbackState.playSessionId);
 
         return;
     }
