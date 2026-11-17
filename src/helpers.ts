@@ -80,9 +80,12 @@ export function getStopPositionTicks(
         return state.startPositionTicks || 0;
     }
 
-    return (
-        (currentMediaTime ?? getCurrentPositionTicks(state)) * TicksPerSecond
-    );
+    // The player's own position is already in ticks.
+    if (currentMediaTime === undefined) {
+        return getCurrentPositionTicks(state);
+    }
+
+    return currentMediaTime * TicksPerSecond;
 }
 
 /**

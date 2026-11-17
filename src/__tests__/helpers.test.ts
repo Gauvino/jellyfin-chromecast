@@ -241,4 +241,10 @@ describe('reported position', () => {
 
         expect(getStopPositionTicks(resumed(true), 361.5)).toBe(3615000000);
     });
+
+    test('of a stop is the player position when the event gives no time', () => {
+        playerAt(361.5);
+
+        expect(getStopPositionTicks(resumed(true))).toBe(3615000000);
+    });
 });
