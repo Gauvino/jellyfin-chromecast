@@ -27,6 +27,7 @@ import {
 } from './jellyfinActions';
 import { getDeviceProfile } from './deviceprofileBuilder';
 import { reportStopOnExit } from './exitReport';
+import { installMediaProbe } from './mediaProbe';
 import { JellyfinApi } from './jellyfinApi';
 import { PlaybackManager, type PlaybackState } from './playbackManager';
 import { CommandHandler } from './commandHandler';
@@ -958,6 +959,8 @@ options.playbackConfig = new cast.framework.PlaybackConfig();
 // media content buffered. Default is 10.
 options.playbackConfig.autoResumeDuration = 5;
 options.supportedCommands = cast.framework.messages.Command.ALL_BASIC_MEDIA;
+
+installMediaProbe();
 
 console.log('Application is ready, starting system');
 window.castReceiverContext.start(options);
