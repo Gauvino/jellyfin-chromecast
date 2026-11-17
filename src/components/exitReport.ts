@@ -1,6 +1,7 @@
 import { getReportingParams } from '../helpers';
 import { JellyfinApi } from './jellyfinApi';
 import { PlaybackManager } from './playbackManager';
+import { wasStoppedDuringLoad } from './stopDuringLoad';
 
 let reported = false;
 
@@ -31,7 +32,11 @@ export function reportStopOnExit(): void {
 
     const playbackState = PlaybackManager.playbackState;
 
-    if (!playbackState.itemId) {
+    // No item, or its stop was already reported during the load.
+    if (
+        !playbackState.itemId ||
+        wasStoppedDuringLoad(playbackState.playSessionId)
+    ) {
         return;
     }
 

@@ -27,6 +27,7 @@ import {
     checkDirectPlay,
     createMediaInformation
 } from './maincontroller';
+import { trackLoad } from './stopDuringLoad';
 import type { ItemIndex, PlayRequest } from '~/types/global';
 
 export interface PlaybackState {
@@ -309,7 +310,8 @@ export abstract class PlaybackManager {
         }
 
         this.playbackState.isChangingStream = isChangingStream;
-        this.playerManager.load(loadRequestData);
+        // Its promise settles when the load is over: a STOP meanwhile waits.
+        trackLoad(playSessionId, this.playerManager.load(loadRequestData));
 
         this.playbackState.PlaybackMediaSource = mediaSource;
 

@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 interface Mocks {
     params: Record<string, unknown>;
     playerState: string;
-    state: { itemId?: string };
+    state: { itemId?: string; playSessionId?: string };
+    stoppedDuringLoad: Set<string>;
 }
 
 const mocks: Mocks = vi.hoisted(() => ({
@@ -15,7 +16,8 @@ const mocks: Mocks = vi.hoisted(() => ({
         PositionTicks: 280000000
     },
     playerState: 'PLAYING',
-    state: { itemId: 'itemId' }
+    state: { itemId: 'itemId' },
+    stoppedDuringLoad: new Set<string>()
 }));
 
 vi.mock('../jellyfinApi', () => ({
@@ -34,6 +36,10 @@ vi.mock('../playbackManager', () => ({
 vi.mock('../../helpers', () => ({
     getReportingParams: (): unknown => mocks.params
 }));
+vi.mock('../stopDuringLoad', () => ({
+    wasStoppedDuringLoad: (playSessionId?: string | null): boolean =>
+        !!playSessionId && mocks.stoppedDuringLoad.has(playSessionId)
+}));
 
 const fetchMock = vi.fn();
 
@@ -42,6 +48,7 @@ beforeEach(() => {
     fetchMock.mockReset();
     mocks.playerState = 'PLAYING';
     mocks.state = { itemId: 'itemId' };
+    mocks.stoppedDuringLoad.clear();
     global.fetch = fetchMock;
     // Only what the exit report reads.
     global.window = {
@@ -95,6 +102,18 @@ describe('the stop of a receiver app that is closed', () => {
 
     test('is not reported without an item', async () => {
         mocks.state = {};
+
+        const { reportStopOnExit } = await import('../exitReport');
+
+        reportStopOnExit();
+
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    test('is not reported again when it was reported during the load', async () => {
+        mocks.playerState = 'BUFFERING';
+        mocks.state = { itemId: 'itemId', playSessionId: 'stopped' };
+        mocks.stoppedDuringLoad.add('stopped');
 
         const { reportStopOnExit } = await import('../exitReport');
 

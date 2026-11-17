@@ -27,7 +27,7 @@ import {
 } from './jellyfinActions';
 import { getDeviceProfile } from './deviceprofileBuilder';
 import { reportStopOnExit } from './exitReport';
-import { installMediaProbe } from './mediaProbe';
+import { installStopDuringLoad, wasStoppedDuringLoad } from './stopDuringLoad';
 import { JellyfinApi } from './jellyfinApi';
 import { PlaybackManager, type PlaybackState } from './playbackManager';
 import { CommandHandler } from './commandHandler';
@@ -201,35 +201,53 @@ function defaultOnStop(): void {
     PlaybackManager.onStop();
 }
 
+/**
+ * Report the stop of the media that finished.
+ * @param mediaFinishedEvent - why and where the media finished
+ */
+export async function onMediaFinished(
+    mediaFinishedEvent: Pick<
+        framework.events.MediaFinishedEvent,
+        'currentMediaTime' | 'endedReason'
+    >
+): Promise<void> {
+    const playbackState = PlaybackManager.playbackState;
+
+    // Don't notify server or client if changing streams, but notify next time.
+    if (playbackState.isChangingStream) {
+        playbackState.isChangingStream = false;
+
+        return;
+    }
+
+    // A new load replaced this media. playbackState already describes the
+    // new item, so reporting a stop here would stop the wrong item, and
+    // onStop would put the idle screen over the new item's video.
+    if (mediaFinishedEvent.endedReason === 'INTERRUPTED') {
+        return;
+    }
+
+    // Its stop was reported as it arrived, during the load.
+    if (wasStoppedDuringLoad(playbackState.playSessionId)) {
+        defaultOnStop();
+
+        return;
+    }
+
+    await reportPlaybackStopped(playbackState, {
+        ...getReportingParams(playbackState),
+        PositionTicks: getStopPositionTicks(
+            playbackState,
+            mediaFinishedEvent.currentMediaTime
+        )
+    });
+
+    defaultOnStop();
+}
+
 window.playerManager.addEventListener(
     cast.framework.events.EventType.MEDIA_FINISHED,
-    async (mediaFinishedEvent): Promise<void> => {
-        const playbackState = PlaybackManager.playbackState;
-
-        // Don't notify server or client if changing streams, but notify next time.
-        if (playbackState.isChangingStream) {
-            playbackState.isChangingStream = false;
-
-            return;
-        }
-
-        // A new load replaced this media. playbackState already describes the
-        // new item, so reporting a stop here would stop the wrong item, and
-        // onStop would put the idle screen over the new item's video.
-        if (mediaFinishedEvent.endedReason === 'INTERRUPTED') {
-            return;
-        }
-
-        await reportPlaybackStopped(playbackState, {
-            ...getReportingParams(playbackState),
-            PositionTicks: getStopPositionTicks(
-                playbackState,
-                mediaFinishedEvent.currentMediaTime
-            )
-        });
-
-        defaultOnStop();
-    }
+    onMediaFinished
 );
 
 window.playerManager.addEventListener(
@@ -960,7 +978,14 @@ options.playbackConfig = new cast.framework.PlaybackConfig();
 options.playbackConfig.autoResumeDuration = 5;
 options.supportedCommands = cast.framework.messages.Command.ALL_BASIC_MEDIA;
 
-installMediaProbe();
+installStopDuringLoad(
+    () => PlaybackManager.playbackState,
+    (state) =>
+        reportPlaybackStopped(state, {
+            ...getReportingParams(state),
+            PositionTicks: getStopPositionTicks(state)
+        })
+);
 
 console.log('Application is ready, starting system');
 window.castReceiverContext.start(options);

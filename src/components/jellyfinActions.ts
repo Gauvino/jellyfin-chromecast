@@ -17,6 +17,7 @@ import { AppStatus } from '../types/appStatus';
 import { JellyfinApi } from './jellyfinApi';
 import { DocumentManager } from './documentManager';
 import { PlaybackManager, type PlaybackState } from './playbackManager';
+import { wasStoppedDuringLoad } from './stopDuringLoad';
 import type {
     BusMessageType,
     JellyfinMediaInformationCustomData
@@ -65,6 +66,11 @@ export async function reportPlaybackStart(
     state: PlaybackState,
     reportingParams: PlaybackProgressInfo
 ): Promise<void> {
+    // Its stop was reported during the load: it no longer plays for anyone.
+    if (wasStoppedDuringLoad(reportingParams.PlaySessionId)) {
+        return;
+    }
+
     // it's just "reporting" that the playback is starting
     // but it's also disabling the rotating backdrops
     // in the line below.
@@ -98,6 +104,12 @@ export async function reportPlaybackProgress(
     reportToServer = true,
     broadcastEventName: BusMessageType = 'playbackprogress'
 ): Promise<void> {
+    // Its stop was reported during the load: a progress report would show it
+    // playing on the server again, with no stop to follow.
+    if (wasStoppedDuringLoad(reportingParams.PlaySessionId)) {
+        return;
+    }
+
     broadcastToMessageBus({
         data: getSenderReportingData(state, reportingParams),
         type: broadcastEventName

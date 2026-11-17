@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import {
+    onMediaFinished,
     onStopPlayerBeforePlaybackDone,
     translateItems
 } from '../maincontroller';
@@ -36,6 +37,11 @@ const mocks = vi.hoisted(() => {
     return {
         connectionError: vi.fn(),
         getItem: vi.fn(),
+        onStop: vi.fn(),
+        // The stub, unless a test gives the playback state it needs.
+        playbackState: stub,
+        reportPlaybackStopped: vi.fn(),
+        stoppedDuringLoad: new Set<string>(),
         stub,
         translateRequestedItems: vi.fn()
     };
@@ -60,11 +66,30 @@ vi.mock('../jellyfinActions', () => ({
     play: vi.fn(),
     reportPlaybackProgress: vi.fn(),
     reportPlaybackStart: vi.fn(),
-    reportPlaybackStopped: vi.fn()
+    reportPlaybackStopped: mocks.reportPlaybackStopped
 }));
 vi.mock('../deviceprofileBuilder', () => ({ getDeviceProfile: vi.fn() }));
 vi.mock('../jellyfinApi', () => ({ JellyfinApi: { jellyfinApi: {} } }));
-vi.mock('../playbackManager', () => ({ PlaybackManager: mocks.stub }));
+vi.mock('../playbackManager', () => ({
+    PlaybackManager: new Proxy(
+        {},
+        {
+            get: (_target, key): unknown => {
+                if (key === 'playbackState') {
+                    return mocks.playbackState;
+                }
+
+                return key === 'onStop' ? mocks.onStop : mocks.stub;
+            }
+        }
+    )
+}));
+vi.mock('../stopDuringLoad', () => ({
+    installStopDuringLoad: vi.fn(),
+    trackLoad: vi.fn(),
+    wasStoppedDuringLoad: (playSessionId?: string | null): boolean =>
+        !!playSessionId && mocks.stoppedDuringLoad.has(playSessionId)
+}));
 vi.mock('../commandHandler', () => ({ CommandHandler: mocks.stub }));
 vi.mock('../codecSupportHelper', () => ({
     getMaxBitrateSupport: (): number => 0
@@ -76,6 +101,8 @@ vi.mock('@jellyfin/sdk/lib/utils/api', () => ({
 
 beforeEach(() => {
     vi.clearAllMocks();
+    mocks.playbackState = mocks.stub;
+    mocks.stoppedDuringLoad.clear();
 });
 
 describe('a server the receiver cannot reach', () => {
@@ -95,5 +122,26 @@ describe('a server the receiver cannot reach', () => {
         await onStopPlayerBeforePlaybackDone({ Id: 'itemId' }, { items: [] });
 
         expect(mocks.connectionError).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('the end of a media', () => {
+    test('is reported as a stop', async () => {
+        mocks.playbackState = { playSessionId: 'playing' };
+
+        await onMediaFinished({ endedReason: 'STOPPED' });
+
+        expect(mocks.reportPlaybackStopped).toHaveBeenCalledTimes(1);
+        expect(mocks.onStop).toHaveBeenCalledTimes(1);
+    });
+
+    test('is not reported again when its stop was reported during its load', async () => {
+        mocks.playbackState = { playSessionId: 'stopped' };
+        mocks.stoppedDuringLoad.add('stopped');
+
+        await onMediaFinished({ endedReason: 'STOPPED' });
+
+        expect(mocks.reportPlaybackStopped).not.toHaveBeenCalled();
+        expect(mocks.onStop).toHaveBeenCalledTimes(1);
     });
 });
