@@ -39,6 +39,7 @@
         "start": "vite",
         "build": "vite build",
         "test": "vitest",
+        "test:scripts": "bash scripts/test.sh",
         "lint": "npm run lint:code && npm run lint:ts && npm run lint:css",
         "lint:code": "eslint",
         "lint:ts": "tsc --noEmit",
