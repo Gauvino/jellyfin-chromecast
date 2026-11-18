@@ -1,0 +1,99 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - 'v*'
+
+permissions: {}
+
+jobs:
+    tag:
+        name: Check the tag
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        outputs:
+            version: ${{ steps.check.outputs.version }}
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+
+            - name: Check the name, the signature and that the commit is in main
+              id: check
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  TAG: ${{ github.ref_name }}
+              # An assignment, not an argument of echo: the step must fail when the check does.
+              run: |
+                  version=$(bash scripts/check-tag.sh "$TAG")
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    build:
+        needs: [tag]
+        uses: ./.github/workflows/build.yaml
+        permissions:
+            contents: read
+        with:
+            channel: release
+            version: ${{ needs.tag.outputs.version }}
+
+    # Only waits, outside the site queue: a release can wait days for its approval without
+    # holding back a beta.
+    approve:
+        name: Wait for the approval
+        needs: [build]
+        runs-on: ubuntu-latest
+        permissions: {}
+        environment: release
+
+        steps:
+            - name: Approved
+              run: echo "Approved"
+
+    release:
+        name: Create the release
+        needs: [approve]
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+
+        steps:
+            - name: Take the zip of the build
+              uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              with:
+                  name: channel
+                  path: in
+
+            # Draft, then the zip, then published: once it is published the zip and the tag are locked.
+            - name: Create the release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  TAG: ${{ github.ref_name }}
+              run: |
+                  if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+                      gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "$TAG" --generate-notes
+                  fi
+                  if [ "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true ]; then
+                      gh release upload "$TAG" in/streamyfin-cast-*.zip --repo "$GITHUB_REPOSITORY" --clobber
+                      gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+                  fi
+
+    publish:
+        needs: [release]
+        uses: ./.github/workflows/site-publish.yaml
+        permissions:
+            contents: write
+            pages: write
+            id-token: write
+        concurrency:
+            group: site
+            queue: max
+        with:
+            channel: release
+            release-tag: ${{ github.ref_name }}
+            deploy: ${{ github.repository == 'streamyfin/streamyfin-cast' }}

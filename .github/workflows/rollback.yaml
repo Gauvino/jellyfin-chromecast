@@ -1,0 +1,56 @@
+name: Put a release back online
+
+on:
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: Release to put back online, for example v0.1.0
+                required: true
+                type: string
+
+permissions: {}
+
+jobs:
+    check:
+        name: Check the release
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+
+        steps:
+            # Nothing is rebuilt: the zip of a published release goes back online as it is.
+            - name: Check the branch, the name and the zip of the release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  TAG: ${{ inputs.tag }}
+              run: |
+                  [[ "$GITHUB_REF" == refs/heads/main ]]
+                  [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+                  test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,assets \
+                      --jq '[.isDraft, ([.assets[].name | select(test("^streamyfin-cast-.*\\.zip$"))] | length)] | @tsv')" = "$(printf 'false\t1')"
+
+    approve:
+        name: Wait for the approval
+        needs: [check]
+        runs-on: ubuntu-latest
+        permissions: {}
+        environment: release
+
+        steps:
+            - name: Approved
+              run: echo "Approved"
+
+    publish:
+        needs: [approve]
+        uses: ./.github/workflows/site-publish.yaml
+        permissions:
+            contents: write
+            pages: write
+            id-token: write
+        concurrency:
+            group: site
+            queue: max
+        with:
+            channel: release
+            release-tag: ${{ inputs.tag }}
+            deploy: ${{ github.repository == 'streamyfin/streamyfin-cast' }}

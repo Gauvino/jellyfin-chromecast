@@ -1,0 +1,31 @@
+name: Beta
+
+on:
+    push:
+        branches:
+            - main
+
+permissions: {}
+
+jobs:
+    build:
+        uses: ./.github/workflows/build.yaml
+        permissions:
+            contents: read
+        with:
+            channel: beta
+
+    publish:
+        needs: [build]
+        uses: ./.github/workflows/site-publish.yaml
+        permissions:
+            contents: write
+            pages: write
+            id-token: write
+        # One publication at a time, and none is dropped while it waits.
+        concurrency:
+            group: site
+            queue: max
+        with:
+            channel: beta
+            deploy: ${{ github.repository == 'streamyfin/streamyfin-cast' }}

@@ -1,0 +1,80 @@
+name: Build
+
+on:
+    pull_request:
+        branches:
+            - main
+    workflow_call:
+        inputs:
+            channel:
+                type: string
+                required: true
+                description: beta or release
+            version:
+                type: string
+                default: ''
+                description: X.Y.Z for a release. Empty for a beta
+
+permissions:
+    contents: read
+
+jobs:
+    build:
+        name: Test, build and lint
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Setup node env
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version-file: .nvmrc
+
+            - name: Install dependencies
+              run: npm ci --no-audit
+
+            - name: Run tests
+              run: npm run test
+
+            - name: Test and lint the scripts
+              run: |
+                  npm run test:scripts
+                  shellcheck scripts/*.sh
+
+            # The receiver reports this version to the Jellyfin server: it is how anyone knows
+            # which build a TV has loaded.
+            - name: Set the version
+              id: version
+              env:
+                  VERSION: ${{ inputs.version }}
+              run: |
+                  version="${VERSION:-$(git rev-parse HEAD | cut -c1-7)}"
+                  jq --arg v "$version" '.version = $v' package.json > tmp && mv tmp package.json
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
+
+            - name: Build
+              run: npm run build
+
+            - name: Lint
+              run: npm run lint
+
+            - name: Make the folder of the channel and its zip
+              if: ${{ inputs.channel != '' }}
+              env:
+                  CHANNEL: ${{ inputs.channel }}
+                  VERSION: ${{ steps.version.outputs.version }}
+              run: |
+                  bash scripts/channel-dir.sh dist "$RUNNER_TEMP/channel" "$CHANNEL" "$VERSION" "$(git rev-parse HEAD)"
+                  cd "$RUNNER_TEMP/channel" && zip -q -X -r "$RUNNER_TEMP/streamyfin-cast-$VERSION.zip" .
+
+            - name: Upload the zip
+              if: ${{ inputs.channel != '' }}
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: channel
+                  path: ${{ runner.temp }}/streamyfin-cast-*.zip
+                  if-no-files-found: error

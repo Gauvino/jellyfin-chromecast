@@ -1,0 +1,106 @@
+name: Put a channel online
+
+on:
+    workflow_call:
+        inputs:
+            channel:
+                type: string
+                required: true
+                description: beta or release
+            release-tag:
+                type: string
+                default: ''
+                description: Take the zip from this release instead of the build of this run
+            deploy:
+                type: boolean
+                required: true
+                description: False writes the site branch and deploys nothing
+
+permissions: {}
+
+jobs:
+    site:
+        name: Write the site branch
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+
+        steps:
+            # This job can write: it installs nothing and builds nothing, it only runs the scripts.
+            - name: Checkout the scripts
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  sparse-checkout: scripts
+
+            - name: Take the zip of the build
+              if: ${{ inputs.release-tag == '' }}
+              uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              with:
+                  name: channel
+                  path: ${{ runner.temp }}/in
+
+            - name: Take the zip of the release
+              if: ${{ inputs.release-tag != '' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  TAG: ${{ inputs.release-tag }}
+              run: gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'streamyfin-cast-*.zip' --dir "$RUNNER_TEMP/in"
+
+            # The new worktree would inherit the sparse checkout of the scripts: it is turned off there,
+            # or beta and release would be left out of it.
+            - name: Replace the folder of the channel
+              env:
+                  CHANNEL: ${{ inputs.channel }}
+              run: |
+                  test "$(find "$RUNNER_TEMP/in" -name 'streamyfin-cast-*.zip' | wc -l)" -eq 1
+                  unzip -q "$RUNNER_TEMP"/in/streamyfin-cast-*.zip -d "$RUNNER_TEMP/channel"
+                  if git fetch --depth 1 origin site; then
+                      git worktree add -B site "$RUNNER_TEMP/site" FETCH_HEAD
+                  else
+                      git worktree add --orphan -b site "$RUNNER_TEMP/site"
+                  fi
+                  git -C "$RUNNER_TEMP/site" sparse-checkout disable
+                  bash scripts/site-replace.sh "$RUNNER_TEMP/site" "$CHANNEL" "$RUNNER_TEMP/channel"
+                  git -C "$RUNNER_TEMP/site" push origin site
+
+            - name: Upload the site
+              if: ${{ inputs.deploy }}
+              uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+              with:
+                  path: ${{ runner.temp }}/site
+
+    pages:
+        name: Deploy and read back
+        if: ${{ inputs.deploy }}
+        needs: [site]
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pages: write
+            id-token: write
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+
+        steps:
+            - name: Deploy
+              id: deployment
+              uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+            - name: Checkout the scripts
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  sparse-checkout: scripts
+                  persist-credentials: false
+
+            - name: Checkout what must be served
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: site
+                  path: site
+                  persist-credentials: false
+
+            - name: Read the public address back
+              env:
+                  PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+              run: bash scripts/verify-served.sh "$PAGE_URL" site
