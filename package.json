@@ -29,11 +29,11 @@
         "vite": "8.3.0",
         "vitest": "5.0.1"
     },
-    "homepage": "https://streamyfin.app",
+    "homepage": "https://github.com/streamyfin/streamyfin-cast#readme",
     "license": "GPL-2.0-or-later",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/jellyfin/jellyfin-chromecast.git"
+        "url": "git+https://github.com/streamyfin/streamyfin-cast.git"
     },
     "scripts": {
         "start": "vite",
